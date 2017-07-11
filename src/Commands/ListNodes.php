@@ -2,13 +2,14 @@
 
 namespace Commands;
 
+use Format\JSONFormat;
+use Format\LinkFormat;
+use Format\TableFormat;
 use GuzzleHttp\Client;
-use Monolog\Handler\PHPConsoleHandler;
-use Monolog\Logger;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -24,14 +25,12 @@ class ListNodes extends Command
             ->addArgument('url', InputArgument::REQUIRED, 'URL to scrape and crawl.')
             ->addArgument('node', InputArgument::REQUIRED, 'What nodes to list')
             ->addArgument('attr', InputArgument::REQUIRED, 'What attributes of the node to list, comma separated')
+            ->addOption('format', 'f', InputOption::VALUE_OPTIONAL, 'What attributes of the node to list, comma separated', 'table')
             ->setDescription('List nodes in document');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $logger = new Logger('console-logger');
-        $logger->pushHandler(new PHPConsoleHandler());
-
         $url = $input->getArgument('url');
         $node = $input->getArgument('node');
         $client = new Client();
@@ -39,23 +38,36 @@ class ListNodes extends Command
         $response = $client->request('GET', $url);
 
         $crawler = new Crawler((string)$response->getBody());
-        $table = new Table($output);
         $attributes = explode(',', $input->getArgument('attr'));
 
-        $table->setHeaders(array_merge(['text'], $attributes));
+        switch ($input->getOption('format')) {
+            case 'json':
+                $outputFormat = new JSONFormat($output);
+                break;
+            case 'link':
+                $outputFormat = new LinkFormat($output);
+                break;
+            case 'table':
+            default:
+                $outputFormat = new TableFormat($output);
+                break;
+        }
 
+        $rows = [];
         $crawler
             ->filter($node)
-            ->each(function (Crawler $element, $i) use ($logger, $attributes, $table) {
-                $logger->addInfo('Element found', ['element' => (array)$element, 'index' => $i]);
+            ->each(function (Crawler $element, $i) use ($output, $attributes, &$rows) {
+                if ($output->getVerbosity() > OutputInterface::VERBOSITY_VERBOSE) {
+                    $output->writeln(['element' => $element->html(), 'index' => $i]);
+                }
                 $row = [];
                 $row['text'] = $element->text();
                 foreach ($attributes as $attr) {
                     $row[$attr] = $element->attr($attr);
                 }
-                $table->addRow($row);
-
+                $rows[] = $row;
             });
-        $table->render();
+
+        $outputFormat->respond($rows);
     }
 }
