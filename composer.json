@@ -1,0 +1,21 @@
+{
+    "name": "jonwest/cli-dom-crawler",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Jon West",
+            "email": "jon.c.west@outlook.com"
+        }
+    ],
+    "require": {
+        "symfony/dom-crawler": "^3.3",
+        "symfony/console": "^3.3",
+        "monolog/monolog": "^1.23",
+        "php-console/php-console": "^3.1",
+        "guzzlehttp/guzzle": "^6.3",
+        "symfony/css-selector": "^3.3"
+    },
+    "autoload": {
+        "psr-4": { "": "src/" }
+    }
+}
